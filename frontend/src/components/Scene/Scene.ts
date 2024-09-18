@@ -1,8 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"; // Fixed through https://github.com/mrdoob/three.js/issues/29367
 
-
-
 // TODO add to class
 const robotGeometry = new THREE.BoxGeometry(1, 1, 1);
 const robotMaterial = new THREE.MeshBasicMaterial({color: 0xFFFFFF, wireframe: true});
