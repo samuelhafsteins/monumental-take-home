@@ -2,73 +2,117 @@ from enum import StrEnum
 from pydantic import BaseModel
 import math
 
-from helpers import FRAMES, get_sign_and_abs
+from helpers import FRAMES, get_sign_and_abs, get_rotation_delta
 
 # All calculations will be done in SI units
 # and will be calculated with respect to the frames
+
 
 class Status(StrEnum):
     STATIONARY = "stationary"
     MOVING = "moving"
     STOP = "stop"
 
-class RobotBase(BaseModel):
-    status: Status = Status.STATIONARY
 
 class Rotation(BaseModel):
     phi: float = 0
 
     w: float = 0
-    max_w: float = math.pi / 2 / FRAMES
-    a: float = math.pi / 4 / FRAMES
+    max_w: float = math.pi / 4 / FRAMES
+    a: float = math.pi / 8 / FRAMES
+
+    cutoff: float = (math.pi / 4 + 0.1) / FRAMES
+
+    destination_phi: float | None = None
+    status_phi: Status = Status.STATIONARY
+
+    def rotate(self, phi):
+        self.status_phi = Status.MOVING
+        self.destination_phi = phi
+
+    def check_rotate(self):
+        if self.status_phi == Status.MOVING:
+            dest_phi = self.destination_phi
+            dphi = get_rotation_delta(dest_phi, self.phi)
+
+            if abs(dphi) <= self.cutoff:
+                self._reset_move()
+                return True
+
+            self.w += self.a
+            self.w = min(self.max_w, self.w)
+
+            if dphi < 0:
+                self.phi += self.w
+            else:
+                self.phi -= self.w
+
+            return True
+        return False
+
+    def _reset_move(self):
+        self.w = 0
+        self.status_phi = Status.STATIONARY
+        self.destination_phi = None
 
 
-class Crane(RobotBase, Rotation):
-    z: float = 0
+class Crane(Rotation): ...
+
+
+class Elbow(Rotation):
+    z: float = 0.5
 
     v: float = 0
-    max_v: float = 0.01 / FRAMES
-    a: float = 0.005 / FRAMES
+    max_v: float = 0.1 / FRAMES
+    a: float = 0.02 / FRAMES
 
-    destination: tuple[float, float] | None = None
+    destination_z: float | None = None
+    status_z: Status = Status.STATIONARY
+    cutoff: float = 0.11 / FRAMES
 
-    def move(self, z, phi):
-        self.status = Status.MOVING
-        self.destination = (z, phi)
+    def move(self, z):
+        self.status_z = Status.MOVING
+        self.destination_z = z
 
-class Elbow(RobotBase, Rotation):
-    destination: float | None = None
+    def check_move(self):
+        if self.status_z == Status.MOVING:
+            dest_z = self.destination_z
+            dz_sign, dz = get_sign_and_abs(dest_z - self.z)
 
-    def rotate(self, phi):
-        self.status = Status.MOVING
-        self.destination = phi
+            if dz <= self.cutoff:
+                self.status_z = Status.STATIONARY
+                self.destination_z = None
+                return True
+
+            self.v += self.a
+            self.v = min(self.max_v, self.v)
+
+            self.z += dz_sign * self.v
+
+            return True
+        return False
 
 
-class Wrist(RobotBase, Rotation):
-    destination: float | None = None
+class Wrist(Rotation): ...
 
-    def rotate(self, phi):
-        self.status = Status.MOVING
-        self.destination = phi
 
-class Gripper(RobotBase):
+class Gripper(Rotation):
     space: float = 0
 
-    destination: float | None = None
-
     v: float = 0
     max_v: float = 0.01 / FRAMES
     a: float = 0.005 / FRAMES
+
+    destination: float | None = None
 
     def move(self, space):
         self.status = Status.MOVING
         self.destination = space
 
-class Robot(RobotBase):
+
+class Robot(Rotation):
     x: float = 0
     y: float = 0
-
-    destination: tuple[float, float] | None = None
 
     crane: Crane = Crane()
     elbow: Elbow = Elbow()
@@ -78,14 +122,18 @@ class Robot(RobotBase):
     v: float = 0
     max_v: float = 3 / FRAMES
     a: float = 1 / FRAMES
+    cutoff: float = 3.1 / FRAMES
+
+    destination: tuple[float, float] | None = None
+    status: Status = Status.STATIONARY
 
     def move(self, x, y):
         self.status = Status.MOVING
         self.destination = (x, y)
 
     def _get_velocities(self, dx, dy):
-        vx = math.sqrt(dx/(dx + dy)) * self.v
-        vy = math.sqrt(dy/(dx + dy)) * self.v
+        vx = math.sqrt(dx / (dx + dy)) * self.v
+        vy = math.sqrt(dy / (dx + dy)) * self.v
         return (vx, vy)
 
     def check_move(self):
@@ -94,7 +142,8 @@ class Robot(RobotBase):
             dx_sign, dx = get_sign_and_abs(dest_x - self.x)
             dy_sign, dy = get_sign_and_abs(dest_y - self.y)
 
-            if dx + dy <= 0.3:
+            if dx + dy <= self.cutoff:
+                # TODO nudge slow down and nudge closer
                 self.status = Status.STATIONARY
                 self.destination = None
                 return True
@@ -115,17 +164,15 @@ class Robot(RobotBase):
             "y": self.y,
             "crane": {
                 "phi": self.crane.phi,
-                "z": self.crane.z,
             },
             "elbow": {
                 "phi": self.elbow.phi,
+                "z": self.elbow.z,
             },
             "wrist": {
                 "phi": self.wrist.phi,
             },
-            "gripper": {
-                "phi": self.gripper.space
-            }
+            "gripper": {"phi": self.gripper.space},
         }
 
 

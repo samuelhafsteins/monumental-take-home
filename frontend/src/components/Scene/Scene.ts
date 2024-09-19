@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"; // Fixed through https://github.com/mrdoob/three.js/issues/29367
-import { robot } from "../../models";
+import { elbow, robot, wrist } from "../../models";
 
 export const init = () => {
     const scene = new THREE.Scene();
@@ -25,6 +25,8 @@ export const init = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
 
     scene.add(robot);
+    scene.add(elbow);
+    scene.add(wrist);
 
     const loop = () => {
         requestAnimationFrame( loop );
