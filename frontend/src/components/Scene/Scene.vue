@@ -1,53 +1,74 @@
 <script setup lang="ts">
-import { onMounted, reactive } from 'vue'
-import { init } from './Scene';
-import { moveRobot, updateRobot, moveElbow, rotateCrane, rotateElbow, rotateWrist, getRobot } from '../../socket';
+import { onMounted, reactive } from "vue";
+import { init } from "./Scene";
+import {
+  moveRobot,
+  updateRobot,
+  moveElbow,
+  rotateCrane,
+  rotateElbow,
+  rotateWrist,
+  getRobot,
+} from "../../socket";
 
-const robotData = reactive({x: "0", y: "0", elbow: {z: "0", phi: "0"}, crane: {phi: "0"}, wrist: {phi: "0"}});
+const robotData = reactive({
+  x: "0",
+  y: "0",
+  elbow: { z: "0", phi: "0" },
+  crane: { phi: "0" },
+  wrist: { phi: "0" },
+});
 onMounted(() => {
   init();
   updateRobot();
   getRobot();
-})
+});
 </script>
 
 <template>
   <div id="inputs">
     <div>
       Move Robot <br />
-      X: <input v-model="robotData.x"/>
+      X: <input v-model="robotData.x" />
       <br />
-      Y: <input v-model="robotData.y"/>
+      Y: <input v-model="robotData.y" />
       <br />
-      <button @click="() => moveRobot(robotData.x, robotData.y)"> Send to location </button>
+      <button @click="() => moveRobot(robotData.x, robotData.y)">
+        Send to location
+      </button>
     </div>
     <div>
       Rotate crane <br />
       Degrees: <input v-model="robotData.crane.phi" />
       <br />
-      <button @click="() => rotateCrane(robotData.crane.phi)"> Rotate crane </button>
+      <button @click="() => rotateCrane(robotData.crane.phi)">
+        Rotate crane
+      </button>
     </div>
     <div>
       Lift elbow <br />
       Z: <input v-model="robotData.elbow.z" />
       <br />
-      <button @click="() => moveElbow(robotData.elbow.z)"> Move elbow </button>
+      <button @click="() => moveElbow(robotData.elbow.z)">Move elbow</button>
     </div>
     <div>
       Rotate elbow <br />
       Degrees: <input v-model="robotData.elbow.phi" />
       <br />
-      <button @click="() => rotateElbow(robotData.elbow.phi)"> Rotate elbow </button>
+      <button @click="() => rotateElbow(robotData.elbow.phi)">
+        Rotate elbow
+      </button>
     </div>
     <div>
       Rotate wrist <br />
       Degrees: <input v-model="robotData.wrist.phi" />
       <br />
-      <button @click="() => rotateWrist(robotData.wrist.phi)"> Rotate wrist </button>
+      <button @click="() => rotateWrist(robotData.wrist.phi)">
+        Rotate wrist
+      </button>
     </div>
   </div>
   <canvas id="scene"></canvas>
-  
 </template>
 
 <style scoped>
@@ -59,7 +80,6 @@ onMounted(() => {
 canvas {
   position: fixed;
   top: 0;
-  right: 0; 
+  right: 0;
 }
-
 </style>
