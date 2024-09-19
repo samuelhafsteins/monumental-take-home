@@ -5,7 +5,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"; //
 const robotGeometry = new THREE.BoxGeometry(1, 1, 1);
 const robotMaterial = new THREE.MeshBasicMaterial({color: 0xFFFFFF, wireframe: true});
 
-const robot = new THREE.Mesh(robotGeometry, robotMaterial);
+export const robot = new THREE.Mesh(robotGeometry, robotMaterial);
 
 export const init = () => {
     const scene = new THREE.Scene();
