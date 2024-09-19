@@ -1,11 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"; // Fixed through https://github.com/mrdoob/three.js/issues/29367
-
-// TODO add to class
-const robotGeometry = new THREE.BoxGeometry(1, 1, 1);
-const robotMaterial = new THREE.MeshBasicMaterial({color: 0xFFFFFF, wireframe: true});
-
-export const robot = new THREE.Mesh(robotGeometry, robotMaterial);
+import { robot } from "../../models";
 
 export const init = () => {
     const scene = new THREE.Scene();
@@ -16,9 +11,10 @@ export const init = () => {
     })
 
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth * 0.8, window.innerHeight * 0.8);
     
     camera.position.setZ(30);
+    camera.position.setY(10);
     
     renderer.render(scene, camera);
 

@@ -94,16 +94,17 @@ class Robot(RobotBase):
             dx_sign, dx = get_sign_and_abs(dest_x - self.x)
             dy_sign, dy = get_sign_and_abs(dest_y - self.y)
 
+            if dx + dy <= 0.3:
+                self.status = Status.STATIONARY
+                self.destination = None
+                return True
+
             self.v += self.a
             self.v = min(self.max_v, self.v)
 
             vx, vy = self._get_velocities(dx, dy)
             self.x += dx_sign * vx
             self.y += dy_sign * vy
-
-            if dx + dy <= 0.3:
-                self.status = Status.STATIONARY
-                self.destination = None
 
             return True
         return False
