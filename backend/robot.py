@@ -172,7 +172,7 @@ class Robot(BaseModel):
     a: float = 1 / FRAMES
     cutoff: float = 3.1 / FRAMES
 
-    # Boolean to keep end-effector still
+    # Boolean if to keep end-effector still
     destination: tuple[float, float, bool] | None = None
 
     status: Status = Status.STATIONARY
@@ -193,7 +193,7 @@ class Robot(BaseModel):
         alpha = math.atan2((x - desired_x), (z - desired_z))
 
         # Adjust to have gripper over object
-        beta = self._get_angle_of_triangle(r)
+        beta = self._get_angle_of_wrist_given_radius(r)
 
         theta = translate_radian(self.elbow.phi)
         if theta < math.pi:
@@ -236,9 +236,8 @@ class Robot(BaseModel):
         self.z += dz_sign * vz
 
     def _check_rotate_around_wrist(self, dest_x, dest_z):
+        # First move in a cycle to the angle of the destination
         _, _, wrist_x, wrist_z = self._get_position_of_joints()
-
-        # wrist_x, wrist_z = 0, 0
 
         r = distance(wrist_x - self.x, wrist_z - self.z)
 
@@ -254,23 +253,30 @@ class Robot(BaseModel):
             )
             < self.cutoff
         ):
+            # Next move in a line to the position
             self._reset_move()
-            self.move(dest_x, dest_z, False)
+
             dist_to_wrist = distance(wrist_x - dest_x, wrist_z - dest_z)
-
             upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
+            try:
+                # Rotation of elbow to desired length
+                gamma = math.pi - math.acos(
+                    (upper_arm**2 + self.parts.lower_arm.depth**2 - dist_to_wrist**2)
+                    / (2 * self.parts.lower_arm.depth * upper_arm)
+                )
+            except ValueError:
+                print(f"Arm cannot extend to desired length {dist_to_wrist}")
+                return
 
-            # Rotation of elbow to desired length
-            gamma = math.pi - math.acos(
-                (upper_arm**2 + self.parts.lower_arm.depth**2 - dist_to_wrist**2)
-                / (2 * self.parts.lower_arm.depth * upper_arm)
-            )
+            self.move(dest_x, dest_z, False)
 
             # Rotation of robot to keep grapper on point
             alpha = math.atan2((wrist_x - dest_x), (wrist_z - dest_z))
-            beta = self._get_angle_of_triangle(dist_to_wrist)
+            beta = self._get_angle_of_wrist_given_radius(dist_to_wrist)
 
             self.elbow.rotate(gamma)
+
+            # gamma is always positive, thus will always be on clockwise side
             self.crane.rotate(alpha - beta)
             return
 
@@ -284,7 +290,7 @@ class Robot(BaseModel):
         # Small cheat here as there is no acceleration on rotation
         self.crane.phi += omega
 
-    def _get_angle_of_triangle(self, r):
+    def _get_angle_of_wrist_given_radius(self, r):
         upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
 
         beta = math.acos(

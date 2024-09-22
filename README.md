@@ -1,6 +1,6 @@
 # Visualizing a Robotic Crane (Controls)
 
-Take home assignment
+Take home assignment, apologies in advance if you find the UI a bit raw.
 
 ## Run program
 
@@ -23,7 +23,8 @@ With them you can control every moving part of the robot.
 In addition you have two extra options:
 
 * An inverse kinematic that will send the robot to a desired postion, while mainting the current rotations on the wrist and elbow.
-* A checkbox that will tell the robot to be stay still and move to a desired position, note that there is no bound check, thus picking a position which the robot could not access while keeping the gripper at the current location will crash the robot.
+* A checkbox under the movement section that will tell the robot to keep the gripper still and move to a desired position.
+Note that there is no bound check, thus picking a position which the robot could not access while keeping the gripper at the current location will stop the robot.
 
 ## Assumptions
 
