@@ -4,6 +4,7 @@ import math
 import json
 
 from helpers import (
+    EPSILON,
     FRAMES,
     closest_point_circle,
     get_sign_and_abs,
@@ -199,7 +200,7 @@ class Robot(BaseModel):
     def inverse_kinematic(self, x, y, z):
         # Inverse kinematic in respect to rotations
         _, _, wrist_x, wrist_z = self._get_position_of_joints()
-        r = distance(wrist_x - self.x, wrist_z - self.z)
+        r = distance(wrist_x - self.x, wrist_z - self.z) - EPSILON
         desired_x, desired_z = closest_point_circle(x, z, self.x, self.z, r)
 
         # Have front of robot facing object
@@ -207,7 +208,7 @@ class Robot(BaseModel):
 
         # Adjust to have gripper over object
         beta = self._get_angle_of_wrist_given_radius(r)
-
+        
         theta = translate_radian(self.elbow.phi)
         if theta < math.pi:
             beta *= -1
@@ -252,7 +253,7 @@ class Robot(BaseModel):
         # First move in a cycle to the angle of the destination
         _, _, wrist_x, wrist_z = self._get_position_of_joints()
 
-        r = distance(wrist_x - self.x, wrist_z - self.z)
+        r = distance(wrist_x - self.x, wrist_z - self.z) - EPSILON
 
         cur_theta = math.atan2(self.x - wrist_x, self.z - wrist_z)
         dest_theta = math.atan2(dest_x - wrist_x, dest_z - wrist_z)
@@ -315,6 +316,7 @@ class Robot(BaseModel):
     def _get_angle_of_wrist_given_radius(self, r):
         upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
 
+        print(upper_arm, self.parts.lower_arm.depth)
         beta = math.acos(
             (r**2 + upper_arm**2 - self.parts.lower_arm.depth**2) / (2 * r * upper_arm)
         )

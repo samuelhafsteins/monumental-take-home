@@ -1,7 +1,7 @@
 import math
 
 FRAMES = 60
-
+EPSILON = 10**-4 # Floating point precission
 
 def get_sign_and_abs(n: float):
     sign = 1
