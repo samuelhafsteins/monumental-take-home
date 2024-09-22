@@ -87,3 +87,10 @@ def handle_robot_open_gripper(space):
     # space received in mm
     robot.gripper.open(space / 1000)
     print(f"Gripper open to {space}")
+
+
+@socketio.on("robot_inverse_kinematic")
+def handle_inverse_kinematic(x, y, z):
+    # y received in mm
+    robot.inverse_kinematic(x, y / 1000, z)
+    print(f"Inverse kinematic to: {x}, {z}, {y / 1000}")

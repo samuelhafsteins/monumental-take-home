@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 import { Robot } from "./models";
 import { RobotData } from "./models";
+import { Ref } from "vue";
 
 export const socket = io("ws://localhost:5000", { autoConnect: false });
 
@@ -8,9 +9,10 @@ export const getRobot = () => {
   socket.emit("get_robot");
 };
 
-export const updateRobot = (robot: Robot) => {
+export const updateRobot = (robot: Robot, displayData: Ref<RobotData | undefined>) => {
   socket.on("robot", (robotData: RobotData) => {
     robot.update(robotData);
+    displayData.value = robotData;
   });
 };
 
@@ -37,3 +39,7 @@ export const rotateWrist = (phi: string) => {
 export const openGripper = (space: string) => {
   socket.emit("robot_open_gripper", parseFloat(space));
 };
+
+export const inverseKinematic = (x: string, y: string, z: string) => {
+  socket.emit("robot_inverse_kinematic", parseFloat(x), parseFloat(y), parseFloat(z));
+}

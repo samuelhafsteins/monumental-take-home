@@ -1,8 +1,9 @@
 from enum import StrEnum
 from pydantic import BaseModel
 import math
+import json
 
-from helpers import FRAMES, get_sign_and_abs, get_rotation_delta
+from helpers import FRAMES, closest_point_circle, get_sign_and_abs, get_rotation_delta, distance, translate_radian
 
 # All calculations will be done in SI units
 # and will be calculated with respect to the frames
@@ -12,6 +13,20 @@ class Status(StrEnum):
     STATIONARY = "stationary"
     MOVING = "moving"
     STOP = "stop"
+
+
+class Dimensions(BaseModel):
+    width: float
+    height: float
+    depth: float
+
+
+class RobotParts(BaseModel):
+    body: Dimensions
+    upper_arm: Dimensions
+    lower_arm: Dimensions
+    hand: Dimensions
+    gripper: Dimensions
 
 
 class Rotation(BaseModel):
@@ -154,6 +169,8 @@ class Robot(BaseModel):
     destination: tuple[float, float] | None = None
     status: Status = Status.STATIONARY
 
+    parts: RobotParts
+
     def move(self, x, z):
         self.status = Status.MOVING
         self.destination = (x, z)
@@ -189,6 +206,47 @@ class Robot(BaseModel):
         self.status = Status.STATIONARY
         self.destination = None
 
+    def inverse_kinematic(self, x, y, z):
+        # Inverse kinematic in respect to rotations
+        _, _, wrist_x, wrist_z = self.get_position_of_joints()
+        r = distance(wrist_x - self.x, wrist_z - self.z)
+        desired_x, desired_z = closest_point_circle(x, z, self.x, self.z, r)
+
+        alpha = math.atan2((x - desired_x), (z - desired_z))
+
+        upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
+        beta = math.acos((r**2 + upper_arm**2 - self.parts.lower_arm.depth**2) / (2 * r * upper_arm))
+
+        theta = translate_radian(self.elbow.phi)
+
+        if theta < math.pi:
+            beta *= -1
+
+        self.move(desired_x, desired_z)
+        self.crane.rotate(alpha + beta)
+
+    def get_position_of_joints(self):
+        elbow_x, elbow_z = self._get_elbow_pos()
+        wrist_x, wrist_z = self._get_wrist_pos(elbow_x, elbow_z)
+
+        return elbow_x, elbow_z, wrist_x, wrist_z
+
+    def _get_elbow_pos(self):
+        return (
+            self.x
+            + (self.parts.upper_arm.depth + self.parts.body.depth / 2)
+            * math.sin(self.crane.phi),
+            self.z
+            + (self.parts.upper_arm.depth + self.parts.body.depth / 2)
+            * math.cos(self.crane.phi),
+        )
+
+    def _get_wrist_pos(self, elbow_x, elbow_z):
+        return (
+            elbow_x + self.parts.lower_arm.depth * math.sin(self.elbow.phi + self.crane.phi),
+            elbow_z + self.parts.lower_arm.depth * math.cos(self.elbow.phi + self.crane.phi),
+        )
+
     def get_robot_data(self):
         return {
             "x": self.x,
@@ -209,4 +267,9 @@ class Robot(BaseModel):
         }
 
 
-robot = Robot()
+dimensions = {}
+
+with open("robot_dimensions.json") as json_data:
+    dimensions = json.load(json_data)
+
+robot = Robot(parts=RobotParts.model_validate(dimensions["robot"]))

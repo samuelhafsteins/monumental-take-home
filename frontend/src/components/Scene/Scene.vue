@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { init } from "./Scene";
 import {
   moveRobot,
@@ -10,8 +10,9 @@ import {
   rotateWrist,
   getRobot,
   openGripper,
+  inverseKinematic,
 } from "../../socket";
-import { Robot } from "../../models";
+import { Robot, RobotData } from "../../models";
 
 const robotData = reactive({
   x: "0",
@@ -20,12 +21,15 @@ const robotData = reactive({
   elbow: { phi: "0" },
   wrist: { phi: "0" },
   gripper: { space: "0" },
+  ik: {x: "0", y: "0", z: "0"}
 });
+
+const displayData = ref<RobotData>();
 
 onMounted(() => {
   const robot = new Robot();
   init(robot.getRenders());
-  updateRobot(robot);
+  updateRobot(robot, displayData);
   getRobot();
 });
 </script>
@@ -80,6 +84,19 @@ onMounted(() => {
         Open gripper
       </button>
     </div>
+    <div>
+      Inverse Kinematic <br />
+      X(m): <input v-model="robotData.ik.x" /> <br />
+      Z(m): <input v-model="robotData.ik.z" /> <br />
+      Y(mm): <input v-model="robotData.ik.y" /> <br />
+      <button @click="() => inverseKinematic(robotData.ik.x, robotData.ik.y, robotData.ik.z)">
+        Move robot
+      </button>
+    </div>
+    Robot data <br/>
+    <pre>
+      {{ displayData }}
+    </pre>
   </div>
   <canvas id="scene"></canvas>
 </template>

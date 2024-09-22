@@ -1,0 +1,29 @@
+{
+    "robot": {
+        "body": {
+            "width": 1,
+            "height": 3,
+            "depth": 1
+        },
+        "upper_arm": {
+            "width": 0.3,
+            "height": 0.3,
+            "depth": 2
+        },
+        "lower_arm": {
+            "width": 0.2,
+            "height": 0.2,
+            "depth": 2
+        },
+        "hand": {
+            "width": 0.2,
+            "height": 0.4,
+            "depth": 0.2
+        },
+        "gripper": {
+            "width": 0.3,
+            "height": 0.1,
+            "depth": 0.01
+        }
+    }
+}
