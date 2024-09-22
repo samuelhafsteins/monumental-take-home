@@ -3,7 +3,14 @@ from pydantic import BaseModel
 import math
 import json
 
-from helpers import FRAMES, closest_point_circle, get_sign_and_abs, get_rotation_delta, distance, translate_radian
+from helpers import (
+    FRAMES,
+    closest_point_circle,
+    get_sign_and_abs,
+    get_rotation_delta,
+    distance,
+    translate_radian,
+)
 
 # All calculations will be done in SI units
 # and will be calculated with respect to the frames
@@ -12,7 +19,6 @@ from helpers import FRAMES, closest_point_circle, get_sign_and_abs, get_rotation
 class Status(StrEnum):
     STATIONARY = "stationary"
     MOVING = "moving"
-    STOP = "stop"
 
 
 class Dimensions(BaseModel):
@@ -166,70 +172,142 @@ class Robot(BaseModel):
     a: float = 1 / FRAMES
     cutoff: float = 3.1 / FRAMES
 
-    destination: tuple[float, float] | None = None
+    # Boolean to keep end-effector still
+    destination: tuple[float, float, bool] | None = None
+
     status: Status = Status.STATIONARY
 
     parts: RobotParts
 
-    def move(self, x, z):
+    def move(self, x, z, ef_still):
         self.status = Status.MOVING
-        self.destination = (x, z)
+        self.destination = (x, z, ef_still)
 
-    def _get_velocities(self, dx, dz):
-        vx = math.sqrt(dx / (dx + dz)) * self.v
-        vz = math.sqrt(dz / (dx + dz)) * self.v
-        return (vx, vz)
+    def inverse_kinematic(self, x, y, z):
+        # Inverse kinematic in respect to rotations
+        _, _, wrist_x, wrist_z = self._get_position_of_joints()
+        r = distance(wrist_x - self.x, wrist_z - self.z)
+        desired_x, desired_z = closest_point_circle(x, z, self.x, self.z, r)
+
+        # Have front of robot facing object
+        alpha = math.atan2((x - desired_x), (z - desired_z))
+
+        # Adjust to have gripper over object
+        beta = self._get_angle_of_triangle(r)
+
+        theta = translate_radian(self.elbow.phi)
+        if theta < math.pi:
+            beta *= -1
+
+        self.crane.lift(
+            y
+            + self.parts.upper_arm.height
+            + self.parts.lower_arm.height
+            + self.parts.hand.height
+        )
+        self.move(desired_x, desired_z, False)
+        self.crane.rotate(alpha + beta)
 
     def check_move(self):
         if self.status == Status.MOVING:
-            dest_x, dest_z = self.destination
-            dx_sign, dx = get_sign_and_abs(dest_x - self.x)
-            dz_sign, dz = get_sign_and_abs(dest_z - self.z)
-
-            if dx + dz <= self.cutoff:
-                # TODO nudge slow down and nudge closer
-                self._reset_move()
-                return True
+            dest_x, dest_z, ef_still = self.destination
 
             self.v += self.a
             self.v = min(self.max_v, self.v)
 
-            vx, vz = self._get_velocities(dx, dz)
-            self.x += dx_sign * vx
-            self.z += dz_sign * vz
+            if ef_still:
+                self._check_rotate_around_wrist(dest_x, dest_z)
+            else:
+                self._check_walk(dest_x, dest_z)
 
             return True
         return False
+
+    def _check_walk(self, dest_x, dest_z):
+        dx_sign, dx = get_sign_and_abs(dest_x - self.x)
+        dz_sign, dz = get_sign_and_abs(dest_z - self.z)
+
+        if distance(dx, dz) <= self.cutoff:
+            self._reset_move()
+            return
+
+        vx, vz = self._get_velocities(dx, dz)
+        self.x += dx_sign * vx
+        self.z += dz_sign * vz
+
+    def _check_rotate_around_wrist(self, dest_x, dest_z):
+        _, _, wrist_x, wrist_z = self._get_position_of_joints()
+
+        # wrist_x, wrist_z = 0, 0
+
+        r = distance(wrist_x - self.x, wrist_z - self.z)
+
+        cur_theta = math.atan2(self.x - wrist_x, self.z - wrist_z)
+        dest_theta = math.atan2(dest_x - wrist_x, dest_z - wrist_z)
+
+        d_theta = get_rotation_delta(dest_theta, cur_theta)
+
+        if (
+            distance(
+                self.x - (wrist_x + r * math.sin(dest_theta)),
+                self.z - (wrist_z + r * math.cos(dest_theta)),
+            )
+            < self.cutoff
+        ):
+            self._reset_move()
+            self.move(dest_x, dest_z, False)
+            r2 = distance(wrist_x - dest_x, wrist_z - dest_z)
+
+            upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
+
+            alpha = math.pi - math.acos(
+                (upper_arm**2 + self.parts.lower_arm.depth**2 - r2**2)
+                / (2 * self.parts.lower_arm.depth * upper_arm)
+            )
+
+            beta = self._get_angle_of_triangle(r2)
+
+            if alpha > 0:
+                beta *= -1
+
+            self.elbow.rotate(alpha)
+            self.crane.rotate(self.crane.phi + beta)
+            return
+
+        omega = self.v / r
+        if d_theta > 0:
+            omega *= -1
+
+        self.x = wrist_x + r * math.sin(omega + cur_theta)
+        self.z = wrist_z + r * math.cos(omega + cur_theta)
+
+        # Small cheat here as there is no acceleration on rotation
+        self.crane.phi += omega
+
+    def _get_angle_of_triangle(self, r):
+        upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
+
+        beta = math.acos(
+            (r**2 + upper_arm**2 - self.parts.lower_arm.depth**2) / (2 * r * upper_arm)
+        )
+
+        return beta
 
     def _reset_move(self):
         self.v = 0
         self.status = Status.STATIONARY
         self.destination = None
 
-    def inverse_kinematic(self, x, y, z):
-        # Inverse kinematic in respect to rotations
-        _, _, wrist_x, wrist_z = self.get_position_of_joints()
-        r = distance(wrist_x - self.x, wrist_z - self.z)
-        desired_x, desired_z = closest_point_circle(x, z, self.x, self.z, r)
-
-        alpha = math.atan2((x - desired_x), (z - desired_z))
-
-        upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
-        beta = math.acos((r**2 + upper_arm**2 - self.parts.lower_arm.depth**2) / (2 * r * upper_arm))
-
-        theta = translate_radian(self.elbow.phi)
-
-        if theta < math.pi:
-            beta *= -1
-
-        self.move(desired_x, desired_z)
-        self.crane.rotate(alpha + beta)
-
-    def get_position_of_joints(self):
+    def _get_position_of_joints(self):
         elbow_x, elbow_z = self._get_elbow_pos()
         wrist_x, wrist_z = self._get_wrist_pos(elbow_x, elbow_z)
 
         return elbow_x, elbow_z, wrist_x, wrist_z
+
+    def _get_velocities(self, dx, dz):
+        vx = math.sqrt(dx / (dx + dz)) * self.v
+        vz = math.sqrt(dz / (dx + dz)) * self.v
+        return (vx, vz)
 
     def _get_elbow_pos(self):
         return (
@@ -243,8 +321,10 @@ class Robot(BaseModel):
 
     def _get_wrist_pos(self, elbow_x, elbow_z):
         return (
-            elbow_x + self.parts.lower_arm.depth * math.sin(self.elbow.phi + self.crane.phi),
-            elbow_z + self.parts.lower_arm.depth * math.cos(self.elbow.phi + self.crane.phi),
+            elbow_x
+            + self.parts.lower_arm.depth * math.sin(self.elbow.phi + self.crane.phi),
+            elbow_z
+            + self.parts.lower_arm.depth * math.cos(self.elbow.phi + self.crane.phi),
         )
 
     def get_robot_data(self):

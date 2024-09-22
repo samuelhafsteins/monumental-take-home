@@ -17,11 +17,12 @@ import { Robot, RobotData } from "../../models";
 const robotData = reactive({
   x: "0",
   z: "0",
+  efStill: "",
   crane: { phi: "0", y: "0" },
   elbow: { phi: "0" },
   wrist: { phi: "0" },
   gripper: { space: "0" },
-  ik: {x: "0", y: "0", z: "0"}
+  ik: { x: "0", y: "0", z: "0" },
 });
 
 const displayData = ref<RobotData>();
@@ -42,7 +43,11 @@ onMounted(() => {
       <br />
       Z (m): <input v-model="robotData.z" />
       <br />
-      <button @click="() => moveRobot(robotData.x, robotData.z)">
+      Still: <input value="1" v-model="robotData.efStill" type="radio" />
+      <br />
+      <button
+        @click="() => moveRobot(robotData.x, robotData.z, robotData.efStill)"
+      >
         Send to location
       </button>
     </div>
@@ -89,11 +94,15 @@ onMounted(() => {
       X(m): <input v-model="robotData.ik.x" /> <br />
       Z(m): <input v-model="robotData.ik.z" /> <br />
       Y(mm): <input v-model="robotData.ik.y" /> <br />
-      <button @click="() => inverseKinematic(robotData.ik.x, robotData.ik.y, robotData.ik.z)">
+      <button
+        @click="
+          () => inverseKinematic(robotData.ik.x, robotData.ik.y, robotData.ik.z)
+        "
+      >
         Move robot
       </button>
     </div>
-    Robot data <br/>
+    Robot data <br />
     <pre>
       {{ displayData }}
     </pre>

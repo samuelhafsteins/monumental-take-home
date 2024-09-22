@@ -9,15 +9,23 @@ export const getRobot = () => {
   socket.emit("get_robot");
 };
 
-export const updateRobot = (robot: Robot, displayData: Ref<RobotData | undefined>) => {
+export const updateRobot = (
+  robot: Robot,
+  displayData: Ref<RobotData | undefined>,
+) => {
   socket.on("robot", (robotData: RobotData) => {
     robot.update(robotData);
     displayData.value = robotData;
   });
 };
 
-export const moveRobot = (x: string, y: string) => {
-  socket.emit("robot_move", parseFloat(x), parseFloat(y));
+export const moveRobot = (x: string, y: string, efStill: string) => {
+  socket.emit(
+    "robot_move",
+    parseFloat(x),
+    parseFloat(y),
+    parseInt(efStill) || false,
+  );
 };
 
 export const liftCrane = (z: string) => {
@@ -41,5 +49,10 @@ export const openGripper = (space: string) => {
 };
 
 export const inverseKinematic = (x: string, y: string, z: string) => {
-  socket.emit("robot_inverse_kinematic", parseFloat(x), parseFloat(y), parseFloat(z));
-}
+  socket.emit(
+    "robot_inverse_kinematic",
+    parseFloat(x),
+    parseFloat(y),
+    parseFloat(z),
+  );
+};

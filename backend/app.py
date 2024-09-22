@@ -51,8 +51,8 @@ def handle_get_robot():
 
 
 @socketio.on("robot_move")
-def handle_robot_move(x, y):
-    robot.move(x, y)
+def handle_robot_move(x, y, ef_still):
+    robot.move(x, y, ef_still)
     print(f"Move robot to {x}, {y}")
 
 
