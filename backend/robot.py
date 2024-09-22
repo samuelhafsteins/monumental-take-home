@@ -18,10 +18,9 @@ class Rotation(BaseModel):
     phi: float = 0
 
     w: float = 0
-    max_w: float = math.pi / 4 / FRAMES
-    a: float = math.pi / 8 / FRAMES
-
-    cutoff: float = (math.pi / 4 + 0.1) / FRAMES
+    max_w: float = (math.pi / 4) / FRAMES
+    a: float = (math.pi / 8) / FRAMES
+    cutoff_phi: float = (math.pi / 4 + 0.1) / FRAMES
 
     destination_phi: float | None = None
     status_phi: Status = Status.STATIONARY
@@ -35,8 +34,8 @@ class Rotation(BaseModel):
             dest_phi = self.destination_phi
             dphi = get_rotation_delta(dest_phi, self.phi)
 
-            if abs(dphi) <= self.cutoff:
-                self._reset_move()
+            if abs(dphi) <= self.cutoff_phi:
+                self._reset_rotation()
                 return True
 
             self.w += self.a
@@ -50,69 +49,97 @@ class Rotation(BaseModel):
             return True
         return False
 
-    def _reset_move(self):
+    def _reset_rotation(self):
         self.w = 0
         self.status_phi = Status.STATIONARY
         self.destination_phi = None
 
 
-class Crane(Rotation): ...
-
-
-class Elbow(Rotation):
-    z: float = 0.5
+class Crane(Rotation):
+    y: float = 1.5
 
     v: float = 0
     max_v: float = 0.1 / FRAMES
     a: float = 0.02 / FRAMES
-
-    destination_z: float | None = None
-    status_z: Status = Status.STATIONARY
     cutoff: float = 0.11 / FRAMES
 
-    def move(self, z):
-        self.status_z = Status.MOVING
-        self.destination_z = z
+    destination_y: float | None = None
+    status_y: Status = Status.STATIONARY
 
-    def check_move(self):
-        if self.status_z == Status.MOVING:
-            dest_z = self.destination_z
-            dz_sign, dz = get_sign_and_abs(dest_z - self.z)
+    def lift(self, y):
+        self.status_y = Status.MOVING
+        self.destination_y = y
 
-            if dz <= self.cutoff:
-                self.status_z = Status.STATIONARY
-                self.destination_z = None
+    def check_lift(self):
+        if self.status_y == Status.MOVING:
+            dest_y = self.destination_y
+            dy_sign, dy = get_sign_and_abs(dest_y - self.y)
+
+            if dy <= self.cutoff:
+                self._reset_lift()
                 return True
 
             self.v += self.a
             self.v = min(self.max_v, self.v)
 
-            self.z += dz_sign * self.v
+            self.y += dy_sign * self.v
 
             return True
         return False
+
+    def _reset_lift(self):
+        self.v = 0
+        self.status_y = Status.STATIONARY
+        self.destination_y = None
+
+
+class Elbow(Rotation): ...
 
 
 class Wrist(Rotation): ...
 
 
-class Gripper(Rotation):
+class Gripper(BaseModel):
     space: float = 0
 
     v: float = 0
-    max_v: float = 0.01 / FRAMES
+    max_v: float = 0.03 / FRAMES
     a: float = 0.005 / FRAMES
+    cutoff: float = 0.04 / FRAMES
 
-    destination: float | None = None
+    destination_open: float | None = None
+    status_open: Status = Status.STATIONARY
 
-    def move(self, space):
-        self.status = Status.MOVING
-        self.destination = space
+    def open(self, space):
+        self.status_open = Status.MOVING
+        self.destination_open = space
+
+    def check_open(self):
+        if self.status_open == Status.MOVING:
+            dest_open = self.destination_open
+            dspace_sign, dspace = get_sign_and_abs(dest_open - self.space)
+
+            if dspace <= self.cutoff:
+                self._reset_open()
+                return True
+
+            self.v += self.a
+            self.v = min(self.max_v, self.v)
+
+            self.space += dspace_sign * self.v
+
+            return True
+        return False
+
+    def _reset_open(self):
+        self.v = 0
+        self.destination_open = None
+        self.status_open = Status.STATIONARY
 
 
-class Robot(Rotation):
+class Robot(BaseModel):
     x: float = 0
-    y: float = 0
+    z: float = 0
 
     crane: Crane = Crane()
     elbow: Elbow = Elbow()
@@ -127,52 +154,58 @@ class Robot(Rotation):
     destination: tuple[float, float] | None = None
     status: Status = Status.STATIONARY
 
-    def move(self, x, y):
+    def move(self, x, z):
         self.status = Status.MOVING
-        self.destination = (x, y)
+        self.destination = (x, z)
 
-    def _get_velocities(self, dx, dy):
-        vx = math.sqrt(dx / (dx + dy)) * self.v
-        vy = math.sqrt(dy / (dx + dy)) * self.v
-        return (vx, vy)
+    def _get_velocities(self, dx, dz):
+        vx = math.sqrt(dx / (dx + dz)) * self.v
+        vz = math.sqrt(dz / (dx + dz)) * self.v
+        return (vx, vz)
 
     def check_move(self):
         if self.status == Status.MOVING:
-            dest_x, dest_y = self.destination
+            dest_x, dest_z = self.destination
             dx_sign, dx = get_sign_and_abs(dest_x - self.x)
-            dy_sign, dy = get_sign_and_abs(dest_y - self.y)
+            dz_sign, dz = get_sign_and_abs(dest_z - self.z)
 
-            if dx + dy <= self.cutoff:
+            if dx + dz <= self.cutoff:
                 # TODO nudge slow down and nudge closer
-                self.status = Status.STATIONARY
-                self.destination = None
+                self._reset_move()
                 return True
 
             self.v += self.a
             self.v = min(self.max_v, self.v)
 
-            vx, vy = self._get_velocities(dx, dy)
+            vx, vz = self._get_velocities(dx, dz)
             self.x += dx_sign * vx
-            self.y += dy_sign * vy
+            self.z += dz_sign * vz
 
             return True
         return False
 
+    def _reset_move(self):
+        self.v = 0
+        self.status = Status.STATIONARY
+        self.destination = None
+
     def get_robot_data(self):
         return {
             "x": self.x,
-            "y": self.y,
+            "z": self.z,
             "crane": {
                 "phi": self.crane.phi,
+                "y": self.crane.y,
             },
             "elbow": {
                 "phi": self.elbow.phi,
-                "z": self.elbow.z,
             },
             "wrist": {
                 "phi": self.wrist.phi,
             },
-            "gripper": {"phi": self.gripper.space},
+            "gripper": {
+                "space": self.gripper.space,
+            },
         }
 
 

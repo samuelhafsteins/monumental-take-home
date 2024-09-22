@@ -4,23 +4,28 @@ import { init } from "./Scene";
 import {
   moveRobot,
   updateRobot,
-  moveElbow,
+  liftCrane,
   rotateCrane,
   rotateElbow,
   rotateWrist,
   getRobot,
+  openGripper,
 } from "../../socket";
+import { Robot } from "../../models";
 
 const robotData = reactive({
   x: "0",
-  y: "0",
-  elbow: { z: "0", phi: "0" },
-  crane: { phi: "0" },
+  z: "0",
+  crane: { phi: "0", y: "0" },
+  elbow: { phi: "0" },
   wrist: { phi: "0" },
+  gripper: { space: "0" },
 });
+
 onMounted(() => {
-  init();
-  updateRobot();
+  const robot = new Robot();
+  init(robot.getRenders());
+  updateRobot(robot);
   getRobot();
 });
 </script>
@@ -29,27 +34,27 @@ onMounted(() => {
   <div id="inputs">
     <div>
       Move Robot <br />
-      X: <input v-model="robotData.x" />
+      X (m): <input v-model="robotData.x" />
       <br />
-      Y: <input v-model="robotData.y" />
+      Z (m): <input v-model="robotData.z" />
       <br />
-      <button @click="() => moveRobot(robotData.x, robotData.y)">
+      <button @click="() => moveRobot(robotData.x, robotData.z)">
         Send to location
       </button>
     </div>
     <div>
-      Rotate crane <br />
+      Lift crane <br />
+      Y (mm): <input v-model="robotData.crane.y" />
+      <br />
+      <button @click="() => liftCrane(robotData.crane.y)">Move elbow</button>
+    </div>
+    <div>
+      Rotate robot <br />
       Degrees: <input v-model="robotData.crane.phi" />
       <br />
       <button @click="() => rotateCrane(robotData.crane.phi)">
         Rotate crane
       </button>
-    </div>
-    <div>
-      Lift elbow <br />
-      Z: <input v-model="robotData.elbow.z" />
-      <br />
-      <button @click="() => moveElbow(robotData.elbow.z)">Move elbow</button>
     </div>
     <div>
       Rotate elbow <br />
@@ -65,6 +70,14 @@ onMounted(() => {
       <br />
       <button @click="() => rotateWrist(robotData.wrist.phi)">
         Rotate wrist
+      </button>
+    </div>
+    <div>
+      Open gripper <br />
+      Space (mm): <input v-model="robotData.gripper.space" />
+      <br />
+      <button @click="() => openGripper(robotData.gripper.space)">
+        Open gripper
       </button>
     </div>
   </div>

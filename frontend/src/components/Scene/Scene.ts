@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"; // Fixed through https://github.com/mrdoob/three.js/issues/29367
-import { elbow, robot, wrist } from "../../models";
 
-export const init = () => {
+export const init = (renders: (THREE.Mesh | THREE.Group)[]) => {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(
     75,
@@ -29,9 +28,11 @@ export const init = () => {
 
   const controls = new OrbitControls(camera, renderer.domElement);
 
-  scene.add(robot);
-  scene.add(elbow);
-  scene.add(wrist);
+  scene.add(...renders);
+
+  const update = () => {
+    renderer.render(scene, camera);
+  };
 
   const loop = () => {
     requestAnimationFrame(loop);
@@ -42,4 +43,8 @@ export const init = () => {
   };
 
   loop();
+
+  return {
+    update,
+  };
 };

@@ -11,14 +11,17 @@ thread_lock = Lock()
 def robot_loop():
     # Emulated robot loop
     while True:
-        if (
-            robot.check_move()
-            or robot.elbow.check_move()
-            or robot.elbow.check_rotate()
-            or robot.crane.check_rotate()
-            or robot.wrist.check_rotate()
-        ):
+        update = False
+        update |= robot.check_move()
+        update |= robot.crane.check_lift()
+        update |= robot.crane.check_rotate()
+        update |= robot.elbow.check_rotate()
+        update |= robot.wrist.check_rotate()
+        update |= robot.gripper.check_open()
+
+        if update:
             socketio.emit("robot", robot.get_robot_data())
+
         sleep(1 / FRAMES)
 
 

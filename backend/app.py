@@ -56,18 +56,18 @@ def handle_robot_move(x, y):
     print(f"Move robot to {x}, {y}")
 
 
+@socketio.on("robot_lift")
+def handle_robot_lift(z):
+    # z received in mm
+    robot.crane.lift(z / 1000)
+    print(f"Lift elbow to {z}")
+
+
 @socketio.on("robot_rotate_crane")
 def handle_robot_rotate_crane(phi):
     # phi received in degrees
     robot.crane.rotate(math.radians(phi))
     print(f"Rotate crane: {phi}")
-
-
-@socketio.on("robot_move_elbow")
-def handle_robot_move_elbow(z):
-    # z received in mm
-    robot.elbow.move(z / 1000)
-    print(f"Lift elbow to {z}")
 
 
 @socketio.on("robot_rotate_elbow")
@@ -82,7 +82,8 @@ def handle_robot_rotate_wrist(phi):
     print(f"Rotate wrist: {phi}")
 
 
-@socketio.on("robot_gripper")
-def handle_robot_gripper(space):
-    robot.gripper.move(space)
+@socketio.on("robot_open_gripper")
+def handle_robot_open_gripper(space):
+    # space received in mm
+    robot.gripper.open(space / 1000)
     print(f"Gripper open to {space}")
