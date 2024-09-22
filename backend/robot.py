@@ -43,16 +43,20 @@ class Rotation(BaseModel):
     a: float = (math.pi / 8) / FRAMES
     cutoff_phi: float = (math.pi / 4 + 0.1) / FRAMES
 
-    destination_phi: float | None = None
+    destination_phi: tuple[float, float] | None = None
     status_phi: Status = Status.STATIONARY
 
-    def rotate(self, phi):
+    def rotate(self, phi, max_w = None):
         self.status_phi = Status.MOVING
-        self.destination_phi = phi
+
+        if max_w is None:
+            max_w = self.max_w
+
+        self.destination_phi = (phi, max_w)
 
     def check_rotate(self):
         if self.status_phi == Status.MOVING:
-            dest_phi = self.destination_phi
+            dest_phi, max_w = self.destination_phi
             dphi = get_rotation_delta(dest_phi, self.phi)
 
             if abs(dphi) <= self.cutoff_phi:
@@ -60,7 +64,7 @@ class Rotation(BaseModel):
                 return True
 
             self.w += self.a
-            self.w = min(self.max_w, self.w)
+            self.w = min(self.max_w, max_w, self.w)
 
             if dphi < 0:
                 self.phi += self.w
@@ -69,6 +73,11 @@ class Rotation(BaseModel):
 
             return True
         return False
+
+    def get_rough_time(self, dest_phi):
+        dphi = get_rotation_delta(dest_phi, self.phi)
+        
+        return dphi / self.max_w
 
     def _reset_rotation(self):
         self.w = 0
@@ -173,15 +182,19 @@ class Robot(BaseModel):
     cutoff: float = 3.1 / FRAMES
 
     # Boolean if to keep end-effector still
-    destination: tuple[float, float, bool] | None = None
+    destination: tuple[float, float, bool, float] | None = None
 
     status: Status = Status.STATIONARY
 
     parts: RobotParts
 
-    def move(self, x, z, ef_still):
+    def move(self, x, z, ef_still, max_v = None):
         self.status = Status.MOVING
-        self.destination = (x, z, ef_still)
+
+        if max_v is None:
+            max_v = self.max_v
+
+        self.destination = (x, z, ef_still, max_v)
 
     def inverse_kinematic(self, x, y, z):
         # Inverse kinematic in respect to rotations
@@ -210,10 +223,10 @@ class Robot(BaseModel):
 
     def check_move(self):
         if self.status == Status.MOVING:
-            dest_x, dest_z, ef_still = self.destination
+            dest_x, dest_z, ef_still, max_v = self.destination
 
             self.v += self.a
-            self.v = min(self.max_v, self.v)
+            self.v = min(self.max_v, max_v, self.v)
 
             if ef_still:
                 self._check_rotate_around_wrist(dest_x, dest_z)
@@ -256,28 +269,37 @@ class Robot(BaseModel):
             # Next move in a line to the position
             self._reset_move()
 
-            dist_to_wrist = distance(wrist_x - dest_x, wrist_z - dest_z)
+            dist_wrist_to_final = distance(wrist_x - dest_x, wrist_z - dest_z)
             upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
             try:
                 # Rotation of elbow to desired length
                 gamma = math.pi - math.acos(
-                    (upper_arm**2 + self.parts.lower_arm.depth**2 - dist_to_wrist**2)
+                    (upper_arm**2 + self.parts.lower_arm.depth**2 - dist_wrist_to_final**2)
                     / (2 * self.parts.lower_arm.depth * upper_arm)
                 )
             except ValueError:
-                print(f"Arm cannot extend to desired length {dist_to_wrist}")
+                print(f"Arm cannot extend to desired length {dist_wrist_to_final}")
                 return
 
-            self.move(dest_x, dest_z, False)
 
             # Rotation of robot to keep grapper on point
             alpha = math.atan2((wrist_x - dest_x), (wrist_z - dest_z))
-            beta = self._get_angle_of_wrist_given_radius(dist_to_wrist)
+            beta = self._get_angle_of_wrist_given_radius(dist_wrist_to_final)
 
-            self.elbow.rotate(gamma)
+            # Get rough time so all object move at roughly the same speed
+            # This is to achieve more stability when rotating
+            t = self.elbow.get_rough_time(gamma)
+
+            self.move(dest_x, dest_z, False, abs((r - dist_wrist_to_final) / t))
+
+            xhi = get_rotation_delta(gamma, self.elbow.phi)
+            self.elbow.rotate(gamma, abs(xhi / t))
 
             # gamma is always positive, thus will always be on clockwise side
-            self.crane.rotate(alpha - beta)
+            delta = get_rotation_delta(alpha - beta, self.crane.phi)
+
+            self.crane.rotate(alpha - beta, abs(delta / t))
+
             return
 
         omega = self.v / r

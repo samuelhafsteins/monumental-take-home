@@ -32,7 +32,7 @@ def send_robot():
 @socketio.on("connect")
 def handle_connect():
     print("Connected")
-    # If we want constant update, uncomment this line
+    # If we want constant update, uncomment these lines
     # global thread
     # with thread_lock:
     #     if thread is None:
