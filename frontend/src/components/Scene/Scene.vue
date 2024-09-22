@@ -17,7 +17,7 @@ import { Robot, RobotData } from "../../models";
 const robotData = reactive({
   x: "0",
   z: "0",
-  efStill: "",
+  efStill: false,
   crane: { phi: "0", y: "0" },
   elbow: { phi: "0" },
   wrist: { phi: "0" },
@@ -43,7 +43,7 @@ onMounted(() => {
       <br />
       Z (m): <input v-model="robotData.z" />
       <br />
-      Still: <input value="1" v-model="robotData.efStill" type="radio" />
+      Still: <input v-model="robotData.efStill" type="checkbox" />
       <br />
       <button
         @click="() => moveRobot(robotData.x, robotData.z, robotData.efStill)"

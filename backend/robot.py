@@ -256,22 +256,22 @@ class Robot(BaseModel):
         ):
             self._reset_move()
             self.move(dest_x, dest_z, False)
-            r2 = distance(wrist_x - dest_x, wrist_z - dest_z)
+            dist_to_wrist = distance(wrist_x - dest_x, wrist_z - dest_z)
 
             upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
 
-            alpha = math.pi - math.acos(
-                (upper_arm**2 + self.parts.lower_arm.depth**2 - r2**2)
+            # Rotation of elbow to desired length
+            gamma = math.pi - math.acos(
+                (upper_arm**2 + self.parts.lower_arm.depth**2 - dist_to_wrist**2)
                 / (2 * self.parts.lower_arm.depth * upper_arm)
             )
 
-            beta = self._get_angle_of_triangle(r2)
+            # Rotation of robot to keep grapper on point
+            alpha = math.atan2((wrist_x - dest_x), (wrist_z - dest_z))
+            beta = self._get_angle_of_triangle(dist_to_wrist)
 
-            if alpha > 0:
-                beta *= -1
-
-            self.elbow.rotate(alpha)
-            self.crane.rotate(self.crane.phi + beta)
+            self.elbow.rotate(gamma)
+            self.crane.rotate(alpha - beta)
             return
 
         omega = self.v / r

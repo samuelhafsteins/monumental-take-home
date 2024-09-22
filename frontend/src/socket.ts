@@ -19,12 +19,12 @@ export const updateRobot = (
   });
 };
 
-export const moveRobot = (x: string, y: string, efStill: string) => {
+export const moveRobot = (x: string, y: string, efStill: boolean) => {
   socket.emit(
     "robot_move",
     parseFloat(x),
     parseFloat(y),
-    parseInt(efStill) || false,
+    efStill,
   );
 };
 
