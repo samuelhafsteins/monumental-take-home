@@ -1,6 +1,6 @@
 # Visualizing a Robotic Crane (Controls)
 
-Take home assignment, apologies in advance if you find the UI a bit raw.
+Take home assignment.
 
 ## Run program
 
@@ -24,7 +24,11 @@ In addition you have two extra options:
 
 * An inverse kinematic that will send the robot to a desired postion, while mainting the current rotations on the wrist and elbow.
 * A checkbox under the movement section that will tell the robot to keep the gripper still and move to a desired position.
-Note that there is no bound check, thus picking a position which the robot could not access while keeping the gripper at the current location will stop the robot.
+
+Some limitations include:
+
+* There is no queue, thus the robot will adhere to the command sent using it's current states.
+* There is no bound check, this affects the still movement the most as the robot will stop if given an invalid position.
 
 ## Assumptions
 

@@ -207,7 +207,7 @@ class Robot(BaseModel):
         alpha = math.atan2((x - desired_x), (z - desired_z))
 
         # Adjust to have gripper over object
-        beta = self._get_angle_of_wrist_given_radius(r)
+        beta = self._get_angle_of_wrist_to_body(r)
         
         theta = translate_radian(self.elbow.phi)
         if theta < math.pi:
@@ -285,7 +285,7 @@ class Robot(BaseModel):
 
             # Rotation of robot to keep grapper on point
             alpha = math.atan2((wrist_x - dest_x), (wrist_z - dest_z))
-            beta = self._get_angle_of_wrist_given_radius(dist_wrist_to_final)
+            beta = self._get_angle_of_wrist_to_body(dist_wrist_to_final)
 
             # Get rough time so all object move at roughly the same speed
             # This is to achieve more stability when rotating
@@ -294,9 +294,16 @@ class Robot(BaseModel):
             self.move(dest_x, dest_z, False, abs((r - dist_wrist_to_final) / t))
 
             xhi = get_rotation_delta(gamma, self.elbow.phi)
+            xhi2 = get_rotation_delta(-gamma, self.elbow.phi)
+
+            # Check which way is easier to go
+            if abs(xhi2) < abs(xhi):
+                xhi = xhi2
+                gamma *= -1
+                beta *= -1
+
             self.elbow.rotate(gamma, abs(xhi / t))
 
-            # gamma is always positive, thus will always be on clockwise side
             delta = get_rotation_delta(alpha - beta, self.crane.phi)
 
             self.crane.rotate(alpha - beta, abs(delta / t))
@@ -313,10 +320,9 @@ class Robot(BaseModel):
         # Small cheat here as there is no acceleration on rotation
         self.crane.phi += omega
 
-    def _get_angle_of_wrist_given_radius(self, r):
+    def _get_angle_of_wrist_to_body(self, r):
         upper_arm = self.parts.upper_arm.depth + self.parts.body.depth / 2
 
-        print(upper_arm, self.parts.lower_arm.depth)
         beta = math.acos(
             (r**2 + upper_arm**2 - self.parts.lower_arm.depth**2) / (2 * r * upper_arm)
         )

@@ -26,6 +26,9 @@ export const init = (renders: (THREE.Mesh | THREE.Group)[]) => {
 
   scene.add(grid);
 
+  const axesHelper = new THREE.AxesHelper( 5 );
+  scene.add( axesHelper );
+
   const controls = new OrbitControls(camera, renderer.domElement);
 
   scene.add(...renders);
