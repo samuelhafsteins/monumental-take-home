@@ -20,10 +20,12 @@ To start the frontend run `npm run dev`, the default url should be `http://local
 
 On the left hand side of the window you have the controls.
 With them you can control every moving part of the robot.
+Note: I used the the x, z plane as the ground and the y axis for height.
+
 In addition you have two extra options:
 
-* An inverse kinematic that will send the robot to a desired postion, while mainting the current rotations on the wrist and elbow.
-* A checkbox under the movement section that will tell the robot to keep the gripper still and move to a desired position.
+* An inverse kinematic that will send the gripper of the robot to a desired postion, while mainting the current rotations on the wrist and elbow.
+* A checkbox under the movement section that will tell the robot to try and keep the gripper still, while moving to a desired position.
 
 Some limitations include:
 
