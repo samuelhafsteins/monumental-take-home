@@ -20,7 +20,7 @@ To start the frontend run `npm run dev`, the default url should be `http://local
 
 On the left hand side of the window you have the controls.
 With them you can control every moving part of the robot.
-Note: I used the the x, z plane as the ground and the y axis for height.
+Note: I used the the x, z plane as the ground and the y axis for height, as that is the default in Three js.
 
 In addition you have two extra options:
 
